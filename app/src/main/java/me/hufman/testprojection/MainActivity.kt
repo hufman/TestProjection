@@ -21,15 +21,11 @@ import android.view.MenuItem
 
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
+import me.hufman.testprojection.MainService.Companion.ACTION_COLOR
+import me.hufman.testprojection.MainService.Companion.ACTION_START
 
 class MainActivity : AppCompatActivity() {
 	val TAG = "TestProjection"
-	var projection: MainProjection? = null
-	val rect = Rect(0, 0, 720, 480)
-	val imageCapture = ImageReader.newInstance(rect.width(), rect.height(), PixelFormat.RGBA_8888, 2)
-
-	var bitmap = Bitmap.createBitmap(imageCapture.width, imageCapture.height,  Bitmap.Config.ARGB_8888)
-	val PERMISSION_CODE = 934
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -37,89 +33,24 @@ class MainActivity : AppCompatActivity() {
 		setSupportActionBar(toolbar)
 
 		fab.setOnClickListener { _ ->
-			projection?.changeColor()
+			startService(Intent(this, MainService::class.java).setAction(ACTION_COLOR))
 		}
 
+		// set up the callback for new images
 		val handler = Handler(Looper.getMainLooper())
-		imageCapture.setOnImageAvailableListener({
-			val image = imageCapture.acquireLatestImage()
+		Data.imageCapture.setOnImageAvailableListener({
+			val image = it.acquireLatestImage()
 
-			Log.i(TAG, "New frame! ${image}")
+			Log.i(TAG, "New frame! $image")
 			showImage(image)
 		}, handler)
 
-		// needed for full screen mirroring
-//		startActivityForResult(projectionManager.createScreenCaptureIntent(),
-//				PERMISSION_CODE)
-
-		// but instead, let's record a background window
+		// start the projection in the background
 		startBackground()
 	}
 
-	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-		super.onActivityResult(requestCode, resultCode, data)
-		if (requestCode == PERMISSION_CODE) {
-			startRecording(data as Intent)
-		}
-	}
-
-	fun startRecording(data: Intent) {
-		val projectionManager = getSystemService(
-				Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-		val projection = projectionManager.getMediaProjection(RESULT_OK, data)
-		val virtualDisplay = projection.createVirtualDisplay("TestMaps", imageCapture.width, imageCapture.height, DisplayMetrics.DENSITY_MEDIUM,
-				VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY, imageCapture.surface, null, null)
-		startPresentation(virtualDisplay.display)
-	}
-
 	fun startBackground() {
-		val handler = Handler(Looper.getMainLooper())
-		val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-		displayManager.registerDisplayListener(object: DisplayManager.DisplayListener {
-			override fun onDisplayChanged(p0: Int) {
-				Log.i(TAG, "Display changed: ${displayManager.getDisplay(p0)}")
-			}
-
-			override fun onDisplayAdded(p0: Int) {
-				Log.i(TAG, "Display added: ${displayManager.getDisplay(p0)}")
-			}
-
-			override fun onDisplayRemoved(p0: Int) {
-				Log.i(TAG, "Display removed: ${displayManager.getDisplay(p0)}")
-			}
-
-		}, handler)
-		val virtualDisplayCallback = object: VirtualDisplay.Callback() {
-			override fun onResumed() {
-				super.onResumed()
-				Log.i(TAG, "Virtual display resumed")
-			}
-
-			override fun onStopped() {
-				super.onStopped()
-				Log.i(TAG, "Virtual display stopped")
-			}
-
-			override fun onPaused() {
-				super.onPaused()
-				Log.i(TAG, "Virtual display paused")
-			}
-		}
-		val virtualDisplay = displayManager.createVirtualDisplay("TestMaps", imageCapture.width, imageCapture.height, 100,
-				imageCapture.surface, VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY, virtualDisplayCallback, handler)
-		// it is possible to directly link the VirtualDisplay to a surfaceView on the main activity, but
-		// that makes it hard to screenshot the VirtualDisplay
-//		val virtualDisplay = displayManager.createVirtualDisplay("TestMaps", imageCapture.width, imageCapture.height, 100,
-//				surfaceView.holder.surface, VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY, virtualDisplayCallback, handler)
-		Log.i(TAG, "Created virtual display $virtualDisplay")
-
-		val display = virtualDisplay.display
-		startPresentation(display)
-	}
-
-	fun startPresentation(display: Display) {
-		projection = MainProjection(this, display)
-		projection?.show()
+		startService(Intent(this, MainService::class.java).setAction(ACTION_START))
 	}
 
 	fun showImage(image: Image?) {
@@ -129,20 +60,20 @@ class MainActivity : AppCompatActivity() {
 		// decide what size to make the destination bitmap
 		val planes = image.planes
 		val buffer = planes[0].buffer
-		val padding = planes[0].rowStride - planes[0].pixelStride * imageCapture.width
+		val padding = planes[0].rowStride - planes[0].pixelStride * Data.imageCapture.width
 		val actualWidth = image.width + padding / planes[0].pixelStride
-		if (bitmap.width != actualWidth) {
-			Log.i(TAG, "Setting capture bitmap to ${actualWidth}x${imageCapture.height} to hold padding $padding")
-			bitmap = Bitmap.createBitmap(actualWidth, imageCapture.height, Bitmap.Config.ARGB_8888)
+		if (Data.bitmap.width != actualWidth) {
+			Log.i(TAG, "Setting capture bitmap to ${actualWidth}x${Data.imageCapture.height} to hold padding $padding")
+			Data.bitmap = Bitmap.createBitmap(actualWidth, Data.imageCapture.height, Bitmap.Config.ARGB_8888)
 		}
 
 		// copy the image from the VirtualDisplay surface to the SurfaceView
-		Log.i(TAG, "Copying rectangle $rect with padding $padding")
-		bitmap.copyPixelsFromBuffer(buffer)
+		Log.i(TAG, "Copying rectangle ${Data.rect} with padding $padding")
+		Data.bitmap.copyPixelsFromBuffer(buffer)
 		val outputCanvas = surfaceView.holder.lockCanvas()
 		if (outputCanvas != null) {
 			Log.i(TAG, "Drawing bitmap")
-			outputCanvas.drawBitmap(bitmap, rect, rect, null)
+			outputCanvas.drawBitmap(Data.bitmap, Data.rect, Data.rect, null)
 			Log.i(TAG, "Posting canvas")
 			surfaceView.holder.unlockCanvasAndPost(outputCanvas)
 			Log.i(TAG, "Finished frame")
