@@ -1,28 +1,26 @@
 package me.hufman.testprojection
 
-import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.*
-import android.hardware.display.DisplayManager
-import android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY
-import android.hardware.display.VirtualDisplay
 import android.media.Image
-import android.media.ImageReader
-import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
-import android.util.DisplayMetrics
 import android.util.Log
-import android.view.Display
 import android.view.Menu
 import android.view.MenuItem
 
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
-import me.hufman.testprojection.MainService.Companion.ACTION_COLOR
+import me.hufman.testprojection.MainService.Companion.ACTION_BUTTON
+import me.hufman.testprojection.MainService.Companion.ACTION_DOWN
 import me.hufman.testprojection.MainService.Companion.ACTION_START
+import me.hufman.testprojection.MainService.Companion.ACTION_STOP
+import me.hufman.testprojection.MainService.Companion.ACTION_UP
+import java.lang.RuntimeException
 
 class MainActivity : AppCompatActivity() {
 	val TAG = "TestProjection"
@@ -33,7 +31,13 @@ class MainActivity : AppCompatActivity() {
 		setSupportActionBar(toolbar)
 
 		fab.setOnClickListener { _ ->
-			startService(Intent(this, MainService::class.java).setAction(ACTION_COLOR))
+			startService(Intent(this, MainService::class.java).setAction(ACTION_BUTTON))
+		}
+		fabUp.setOnClickListener {
+			startService(Intent(this, MainService::class.java).setAction(ACTION_UP))
+		}
+		fabDown.setOnClickListener {
+			startService(Intent(this, MainService::class.java).setAction(ACTION_DOWN))
 		}
 
 		// set up the callback for new images
@@ -41,21 +45,49 @@ class MainActivity : AppCompatActivity() {
 		Data.imageCapture.setOnImageAvailableListener({
 			val image = it.acquireLatestImage()
 
-			Log.i(TAG, "New frame! $image")
+//			Log.i(TAG, "New frame! $image")
 			showImage(image)
 		}, handler)
 
+		discoverProjectionApps()
+	}
+
+	override fun onResume() {
+		super.onResume()
+
 		// start the projection in the background
-		startBackground()
+		ContextCompat.startForegroundService(this, Intent(this, MainService::class.java).setAction(ACTION_START))
+	}
+
+	fun discoverProjectionApps() {
+
+		val filter = Intent("android.intent.action.MAIN")
+		filter.addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION")
+//		filter.addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION_NAVIGATION")
+//		{
+//			addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION")
+//			addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION_NAVIGATION")
+//			addCategory("android.intent.action.MEDIA_BUTTON")
+//		}
+
+
+		val services = packageManager.queryIntentServices(filter, PackageManager.GET_RESOLVED_FILTER)
+		services.forEach {
+			Log.i(TAG, "Found projection app ${it.serviceInfo?.applicationInfo?.packageName}")
+		}
 	}
 
 	fun startBackground() {
-		startService(Intent(this, MainService::class.java).setAction(ACTION_START))
+		try {
+			ContextCompat.startForegroundService(this, Intent(this, MainService::class.java).setAction(ACTION_START))
+		} catch (e: RuntimeException) {
+			Log.w(TAG, "Couldn't start service: $e")
+		}
 	}
 
 	fun showImage(image: Image?) {
 		if (image == null) return
-		Log.i(TAG, "New frame! ${image.width}x${image.height}")
+//		Log.i(TAG, "New frame! ${image.width}x${image.height}")
 
 		// decide what size to make the destination bitmap
 		val planes = image.planes
@@ -63,20 +95,30 @@ class MainActivity : AppCompatActivity() {
 		val padding = planes[0].rowStride - planes[0].pixelStride * Data.imageCapture.width
 		val actualWidth = image.width + padding / planes[0].pixelStride
 		if (Data.bitmap.width != actualWidth) {
-			Log.i(TAG, "Setting capture bitmap to ${actualWidth}x${Data.imageCapture.height} to hold padding $padding")
+//			Log.i(TAG, "Setting capture bitmap to ${actualWidth}x${Data.imageCapture.height} to hold padding $padding")
 			Data.bitmap = Bitmap.createBitmap(actualWidth, Data.imageCapture.height, Bitmap.Config.ARGB_8888)
 		}
 
 		// copy the image from the VirtualDisplay surface to the SurfaceView
-		Log.i(TAG, "Copying rectangle ${Data.rect} with padding $padding")
+//		Log.i(TAG, "Copying rectangle ${Data.rect} with padding $padding")
 		Data.bitmap.copyPixelsFromBuffer(buffer)
+		// resize to a smaller
+		val smallerRect = Rect(0, 0, Data.rect.right/2, Data.rect.bottom/2)
+		val smallerRectF = RectF(0f, 0f, Data.rect.right/2.0f, Data.rect.bottom/2.0f)
+		val smallerBitmap = Bitmap.createBitmap(Data.rect.right/2, Data.rect.bottom/2, Bitmap.Config.RGB_565)
+		val smallCanvas = Canvas(smallerBitmap)
+		val smallMatrix = Matrix()
+		smallMatrix.reset()
+		smallMatrix.postScale(0.5f, 0.5f)
+		smallCanvas.drawBitmap(Data.bitmap, Data.rect, smallerRectF, null)
+		// output to surface
 		val outputCanvas = surfaceView.holder.lockCanvas()
 		if (outputCanvas != null) {
-			Log.i(TAG, "Drawing bitmap")
-			outputCanvas.drawBitmap(Data.bitmap, Data.rect, Data.rect, null)
-			Log.i(TAG, "Posting canvas")
+//			Log.i(TAG, "Drawing bitmap")
+			outputCanvas.drawBitmap(smallerBitmap, smallerRect, Data.rect, null)
+//			Log.i(TAG, "Posting canvas")
 			surfaceView.holder.unlockCanvasAndPost(outputCanvas)
-			Log.i(TAG, "Finished frame")
+//			Log.i(TAG, "Finished frame")
 		}
 		image.close()
 	}
@@ -95,5 +137,11 @@ class MainActivity : AppCompatActivity() {
 			R.id.action_settings -> true
 			else -> super.onOptionsItemSelected(item)
 		}
+	}
+
+	override fun onPause() {
+		super.onPause()
+
+		startService(Intent(this, MainService::class.java).setAction(ACTION_STOP))
 	}
 }
