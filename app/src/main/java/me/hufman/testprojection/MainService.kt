@@ -7,7 +7,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
@@ -16,11 +15,11 @@ import android.support.v4.app.NotificationCompat
 import android.util.Log
 import android.view.KeyEvent
 import me.hufman.carprojection.AppDiscovery
+import me.hufman.carprojection.CarProjectionHost
+import me.hufman.carprojection.ProjectionAppInfo
 import me.hufman.carprojection.adapters.ICarService
 import me.hufman.carprojection.adapters.ICarProjectionCallbackService
-import me.hufman.carprojection.adapters.CarProjection
-import me.hufman.carprojection.parcelables.DrawingSpec
-import me.hufman.carprojection.parcelables.InputFocusChangedEvent
+import java.lang.Exception
 
 
 class MainService: Service() {
@@ -160,52 +159,43 @@ class MainService: Service() {
 	}
 
 	fun tryProjectionApp() {
+		val selectedApp = Data.selectedApp
 		val iCar = iCar
 		val iCarProjectionCallback = iCarProjectionCallback
-		if (iCar != null && iCarProjectionCallback != null) {
-			connectToProjectionApp(Data.imageCapture, iCar, iCarProjectionCallback)
+		if (selectedApp != null && iCar != null && iCarProjectionCallback != null) {
+			connectToProjectionApp(selectedApp, Data.imageCapture, iCar, iCarProjectionCallback)
 		}
 	}
 
-	fun connectToProjectionApp(imageCapture: ImageReader, car: IBinder, callbacks: IBinder) {
+	fun connectToProjectionApp(appInfo: ProjectionAppInfo, imageCapture: ImageReader, car: IBinder, callbacks: IBinder) {
 		val discovery = AppDiscovery(this)
-		val apps = discovery.discoverApps()
-//		val app = apps.first { it.packageName == "com.waze" }
-		val app = apps.first { it.packageName == "com.google.android.apps.maps" }
-		discovery.connectApp(app, object: ServiceConnection {
-			override fun onServiceDisconnected(p0: ComponentName?) {
-				Log.i(TAG, "Disconnected from projection app ${app.className}")
+		if (appInfo != Data.carProjectionHost?.appInfo ) {
+			if (Data.carProjectionHost != null) {
+				handleActionStop()
+				Handler().postDelayed({connectToProjectionApp(appInfo, imageCapture, car, callbacks)}, 1000)
+			} else {
+				val host = CarProjectionHost(this, appInfo, imageCapture, car, callbacks)
+				Data.carProjectionHost = host
+				discovery.connectApp(appInfo, host)
 			}
-			override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
-				p1 ?: return
-				try {
-					val projection = CarProjection.getInstance(this@MainService, p1)
-					Data.carProjection = projection
-					projection.onSetup(car, callbacks)
-
-					val displayRect = Rect(0, 0, Data.imageCapture.width, Data.imageCapture.height)
-					val drawingSpec = DrawingSpec.build(this@MainService, imageCapture.width, imageCapture.height, 100, imageCapture.surface, displayRect)
-					projection.onConfigChanged(0, drawingSpec, resources.configuration)
-					projection.onProjectionStart(drawingSpec, Intent(), Bundle())
-					projection.onProjectionResume(0)
-
-					val inputFocus = InputFocusChangedEvent.build(this@MainService, true, false, 0, displayRect)
-					projection.onInputFocusChange(inputFocus)
-				} catch (e: Exception) {
-					Log.e(TAG, "Error starting projection", e)
-				}
-			}
-		})
+		}
 	}
 
 	fun sendInput(event: KeyEvent) {
-		val carProjection = Data.carProjection ?: return
+		val carProjection = Data.carProjectionHost?.projection ?: return
 		carProjection.onKeyEvent(event)
 	}
 
 	fun handleActionStop() {
-		val carProjection = Data.carProjection ?: return
-		carProjection.onProjectionStop(0)
+		val carProjection = Data.carProjectionHost?.projection ?: return
+		try {
+			carProjection.onProjectionStop(0)
+		} catch (e: Exception) {}
+		try {
+			val carProjectionHost = Data.carProjectionHost
+			carProjectionHost?.apply { unbindService(this) }
+		} catch (e: Exception) {}
+		Data.carProjectionHost = null
 	}
 
 	override fun onDestroy() {

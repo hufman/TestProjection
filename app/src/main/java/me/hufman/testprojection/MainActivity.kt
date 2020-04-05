@@ -15,6 +15,8 @@ import android.view.MenuItem
 
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
+import me.hufman.carprojection.AppDiscovery
+import me.hufman.carprojection.ProjectionAppInfo
 import me.hufman.testprojection.MainService.Companion.ACTION_BUTTON
 import me.hufman.testprojection.MainService.Companion.ACTION_DOWN
 import me.hufman.testprojection.MainService.Companion.ACTION_START
@@ -50,6 +52,16 @@ class MainActivity : AppCompatActivity() {
 		}, handler)
 
 		discoverProjectionApps()
+		Data.projectionApps.addAll(AppDiscovery(this).discoverApps().sortedBy { it.name })
+		Log.i(TAG, Data.projectionApps.toString())
+		lstApps.adapter = ProjectionAppListItem(this, Data.projectionApps)
+		lstApps.setOnItemClickListener { adapterView, view, i, l ->
+			val appInfo = adapterView.adapter.getItem(i) as? ProjectionAppInfo
+			if (appInfo != null) {
+				Data.selectedApp = appInfo
+				startService()
+			}
+		}
 	}
 
 	override fun onResume() {
@@ -77,7 +89,7 @@ class MainActivity : AppCompatActivity() {
 		}
 	}
 
-	fun startBackground() {
+	fun startService() {
 		try {
 			ContextCompat.startForegroundService(this, Intent(this, MainService::class.java).setAction(ACTION_START))
 		} catch (e: RuntimeException) {

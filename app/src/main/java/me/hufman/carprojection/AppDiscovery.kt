@@ -12,7 +12,10 @@ class AppDiscovery(val context: Context) {
 		filter.addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION")
 		val services = context.packageManager.queryIntentServices(filter, PackageManager.GET_RESOLVED_FILTER)
 		return services.map {
-			ProjectionAppInfo(it.serviceInfo.packageName, it.serviceInfo.name)
+			val packageInfo = context.packageManager.getApplicationInfo(it.serviceInfo.packageName, 0)
+			val name = context.packageManager.getApplicationLabel(packageInfo).toString()
+			val icon = context.packageManager.getApplicationIcon(packageInfo)
+			ProjectionAppInfo(it.serviceInfo.packageName, it.serviceInfo.name, name, icon)
 		}
 	}
 
