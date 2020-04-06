@@ -11,7 +11,9 @@ class AppDiscovery(val context: Context) {
 		val filter = Intent("android.intent.action.MAIN")
 		filter.addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION")
 		val services = context.packageManager.queryIntentServices(filter, PackageManager.GET_RESOLVED_FILTER)
-		return services.map {
+		return services.filter {
+			it.serviceInfo.permission != "com.google.android.gms.permission.CAR"
+		}.map {
 			val packageInfo = context.packageManager.getApplicationInfo(it.serviceInfo.packageName, 0)
 			val name = context.packageManager.getApplicationLabel(packageInfo).toString()
 			val icon = context.packageManager.getApplicationIcon(packageInfo)

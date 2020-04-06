@@ -1,7 +1,9 @@
 package me.hufman.testprojection
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.IntentFilter
 import android.graphics.*
 import android.media.Image
 import android.os.Bundle
@@ -10,8 +12,10 @@ import android.os.Looper
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
+import android.view.inputmethod.InputMethodManager
 
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
@@ -25,7 +29,11 @@ import me.hufman.testprojection.MainService.Companion.ACTION_UP
 import java.lang.RuntimeException
 
 class MainActivity : AppCompatActivity() {
-	val TAG = "TestProjection"
+	companion object {
+		val TAG = "TestProjection"
+
+		const val ACTION_KEYBOARD = "me.hufman.testprojection.MainActivity.keyboard"
+	}
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -68,24 +76,14 @@ class MainActivity : AppCompatActivity() {
 		super.onResume()
 
 		// start the projection in the background
-		ContextCompat.startForegroundService(this, Intent(this, MainService::class.java).setAction(ACTION_START))
+		startService()
+
+		registerReceiver(broadcastReceiver, IntentFilter(ACTION_KEYBOARD))
 	}
 
 	fun discoverProjectionApps() {
-
-		val filter = Intent("android.intent.action.MAIN")
-		filter.addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION")
-//		filter.addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION_NAVIGATION")
-//		{
-//			addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION")
-//			addCategory("com.google.android.gms.car.category.CATEGORY_PROJECTION_NAVIGATION")
-//			addCategory("android.intent.action.MEDIA_BUTTON")
-//		}
-
-
-		val services = packageManager.queryIntentServices(filter, PackageManager.GET_RESOLVED_FILTER)
-		services.forEach {
-			Log.i(TAG, "Found projection app ${it.serviceInfo?.applicationInfo?.packageName}")
+		AppDiscovery(this).discoverApps().forEach {
+			Log.i(TAG, "Found projection app ${it.packageName}")
 		}
 	}
 
@@ -151,9 +149,32 @@ class MainActivity : AppCompatActivity() {
 		}
 	}
 
+	val broadcastReceiver = object: BroadcastReceiver() {
+		override fun onReceive(p0: Context?, p1: Intent?) {
+			if (p1?.action == ACTION_KEYBOARD) {
+				getSystemService(InputMethodManager::class.java)?.showSoftInput(this@MainActivity.findViewById(R.id.activityMain), InputMethodManager.SHOW_FORCED)
+			}
+		}
+
+	}
+
+	override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+		event ?: return false
+//		return Data.carProjectionHost?.inputConnection?.sendKeyEvent(event) ?: false
+		return if (event.keyCode == KeyEvent.KEYCODE_ENTER) {
+			true
+		} else if (event.keyCode == KeyEvent.KEYCODE_DEL) {
+			Data.carProjectionHost?.inputConnection?.deleteSurroundingText(1, 0)
+		} else {
+			val data = event.unicodeChar.toChar()
+			Data.carProjectionHost?.inputConnection?.commitText(data.toString())
+		} ?: false
+	}
+
 	override fun onPause() {
 		super.onPause()
 
 		startService(Intent(this, MainService::class.java).setAction(ACTION_STOP))
+		unregisterReceiver(broadcastReceiver)
 	}
 }

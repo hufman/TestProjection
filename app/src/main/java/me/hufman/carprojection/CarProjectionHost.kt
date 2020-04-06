@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import me.hufman.carprojection.adapters.CarProjection
+import me.hufman.carprojection.adapters.ProxyInputConnection
 import me.hufman.carprojection.parcelables.DrawingSpec
 import me.hufman.carprojection.parcelables.InputFocusChangedEvent
 import me.hufman.testprojection.Data
@@ -21,6 +22,7 @@ class CarProjectionHost(val context: Context, val appInfo: ProjectionAppInfo,
 	}
 
 	var projection: CarProjection? = null
+	var inputConnection: ProxyInputConnection? = null
 
 	override fun onServiceDisconnected(p0: ComponentName?) {
 		Log.i(TAG, "Disconnected from projection app ${appInfo.className}")

@@ -14,6 +14,9 @@ object Gearhead {
 	fun getContext(context: Context): Context {
 		return context.createPackageContext(gearheadPackageName, Context.CONTEXT_IGNORE_SECURITY or Context.CONTEXT_INCLUDE_CODE)
 	}
+	fun getClassLoader(context: Context): ClassLoader {
+		return getContext(context).classLoader
+	}
 
 	fun getPackageInfo(context: Context): PackageInfo {
 		return context.packageManager.getPackageInfo(Gearhead.gearheadPackageName, 0)
@@ -22,7 +25,7 @@ object Gearhead {
 
 	/** Expands a class name to have a full package prefix */
 	fun expandClassName(name: String): String {
-		return if (name.contains('.')) {
+		return if (name.startsWith("com")) {
 			name
 		} else {
 			return "$defaultClassPackage.$name"

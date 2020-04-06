@@ -125,7 +125,11 @@ class MainService: Service() {
 		}
 	}
 
-	fun startCarService() {
+	private fun startCarService() {
+		if (iCar != null) {
+			tryProjectionApp()
+			return
+		}
 		val intent = Intent(this, ICarService::class.java)
 		bindService(intent, object: ServiceConnection {
 			override fun onServiceDisconnected(p0: ComponentName?) {
@@ -142,7 +146,11 @@ class MainService: Service() {
 		}, Context.BIND_AUTO_CREATE)
 	}
 
-	fun startCarCallbackService() {
+	private fun startCarCallbackService() {
+		if (iCarProjectionCallback != null) {
+			tryProjectionApp()
+			return
+		}
 		val intent = Intent(this, ICarProjectionCallbackService::class.java)
 		bindService(intent, object: ServiceConnection {
 			override fun onServiceDisconnected(p0: ComponentName?) {
@@ -170,7 +178,7 @@ class MainService: Service() {
 	fun connectToProjectionApp(appInfo: ProjectionAppInfo, imageCapture: ImageReader, car: IBinder, callbacks: IBinder) {
 		val discovery = AppDiscovery(this)
 		if (appInfo != Data.carProjectionHost?.appInfo ) {
-			if (Data.carProjectionHost != null) {
+			if (Data.carProjectionHost != null && appInfo != Data.carProjectionHost?.appInfo) {
 				handleActionStop()
 				Handler().postDelayed({connectToProjectionApp(appInfo, imageCapture, car, callbacks)}, 1000)
 			} else {
