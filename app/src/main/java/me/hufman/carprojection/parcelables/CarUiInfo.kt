@@ -1,6 +1,7 @@
 package me.hufman.carprojection.parcelables
 
 import android.content.Context
+import android.graphics.Point
 import android.os.Parcelable
 import me.hufman.carprojection.Gearhead
 import java.lang.reflect.Constructor
@@ -23,6 +24,8 @@ class CarUiInfo(val transport: Parcelable) {
 				when (it) {
 					Int::class.javaPrimitiveType -> intTypes.poll() ?: 0
 					Boolean::class.javaPrimitiveType -> boolTypes.poll() ?: false
+					Array<Int>::class.java -> arrayOf(40, 50)
+					Point::class.java -> Point(40, 50)
 					else -> null
 				}
 			}.toTypedArray()

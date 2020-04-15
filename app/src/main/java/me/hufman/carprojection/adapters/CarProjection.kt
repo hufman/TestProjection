@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.view.KeyEvent
 import me.hufman.carprojection.Gearhead
 import me.hufman.carprojection.adapters.impl.MagicCarProjection
+import me.hufman.carprojection.parcelables.CarWindowManagerLayoutParams
 import me.hufman.carprojection.parcelables.DrawingSpec
 import me.hufman.carprojection.parcelables.InputFocusChangedEvent
 
@@ -23,11 +24,13 @@ abstract class CarProjection(val context: Context, transport: IBinder) {
 	}
 
 	abstract fun onSetup(iCar: IBinder, iCarProjectionCallback: IBinder)
+	abstract fun onNewIntent(intent: Intent)
 	abstract fun onConfigChanged(displayId: Int, drawingSpec: DrawingSpec, config: Configuration)
-	abstract fun onProjectionStart(drawingSpec: DrawingSpec, intent: Intent, bundle: Bundle)
+	abstract fun onProjectionStart(drawingSpec: DrawingSpec, intent: Intent, bundle: Bundle?)
 	abstract fun onProjectionResume(displayId: Int)
 	abstract fun onInputFocusChange(inputFocusChangedEvent: InputFocusChangedEvent)
+	abstract fun onWindowAttributesChanged(windowAttributes: CarWindowManagerLayoutParams)
 	abstract fun onKeyEvent(event: KeyEvent)
-	// technically there's also an onProjectionPause(displayId: Int)
+	abstract fun onProjectionPause(displayId: Int)
 	abstract fun onProjectionStop(displayId: Int)
 }

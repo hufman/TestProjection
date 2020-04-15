@@ -1,6 +1,7 @@
 package me.hufman.testprojection
 
 import android.graphics.Bitmap
+import android.graphics.ImageFormat
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.media.ImageReader

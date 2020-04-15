@@ -115,7 +115,8 @@ class MainActivity : AppCompatActivity() {
 		// resize to a smaller
 		val smallerRect = Rect(0, 0, Data.rect.right/2, Data.rect.bottom/2)
 		val smallerRectF = RectF(0f, 0f, Data.rect.right/2.0f, Data.rect.bottom/2.0f)
-		val smallerBitmap = Bitmap.createBitmap(Data.rect.right/2, Data.rect.bottom/2, Bitmap.Config.RGB_565)
+		val smallerBitmap = Bitmap.createBitmap(Data.rect.right/2, Data.rect.bottom/2, Bitmap.Config.ARGB_8888)
+//		val smallerBitmap = Bitmap.createBitmap(Data.rect.right/2, Data.rect.bottom/2, Bitmap.Config.RGB_565)
 		val smallCanvas = Canvas(smallerBitmap)
 		val smallMatrix = Matrix()
 		smallMatrix.reset()

@@ -178,7 +178,9 @@ class MainService: Service() {
 	fun connectToProjectionApp(appInfo: ProjectionAppInfo, imageCapture: ImageReader, car: IBinder, callbacks: IBinder) {
 		val discovery = AppDiscovery(this)
 		if (appInfo != Data.carProjectionHost?.appInfo ) {
-			if (Data.carProjectionHost != null && appInfo != Data.carProjectionHost?.appInfo) {
+			if (Data.carProjectionHost != null && appInfo == Data.carProjectionHost?.appInfo) {
+				handleActionStop()
+			} else if (Data.carProjectionHost != null && appInfo != Data.carProjectionHost?.appInfo) {
 				handleActionStop()
 				Handler().postDelayed({connectToProjectionApp(appInfo, imageCapture, car, callbacks)}, 1000)
 			} else {
@@ -195,13 +197,18 @@ class MainService: Service() {
 	}
 
 	fun handleActionStop() {
+		Log.i(TAG, "Disconnecting app ${Data.carProjectionHost?.appInfo}")
 		val carProjection = Data.carProjectionHost?.projection ?: return
 		try {
+			carProjection.onProjectionPause(0)
 			carProjection.onProjectionStop(0)
 		} catch (e: Exception) {}
 		try {
 			val carProjectionHost = Data.carProjectionHost
-			carProjectionHost?.apply { unbindService(this) }
+			carProjectionHost?.apply {
+				Log.i(TAG, "Unbinding app")
+				unbindService(this)
+			}
 		} catch (e: Exception) {}
 		Data.carProjectionHost = null
 	}
