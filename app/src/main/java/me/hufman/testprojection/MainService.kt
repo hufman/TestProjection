@@ -83,6 +83,8 @@ class MainService: Service() {
 	fun startPresentation(display: Display) {
 		projection = MainProjection(this, display)
 		projection?.show()
+		val frame = Data.encoder.getFrame()
+		Log.i(TAG, "Received frame of ${frame.size} length! ${String(frame)}")
 	}
 
 	fun handleActionStop() {
